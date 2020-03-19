@@ -136,7 +136,7 @@ class RobotURDF(RobotDescription):
     def __init__(self):
         super().__init__()
         self.ext = 'urdf'
-        self.append('<robot name="' + self.robotName + '">')
+        self.append('<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="' + self.robotName + '">')
         pass
 
     def addDummyLink(self, name):
