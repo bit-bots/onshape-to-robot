@@ -165,7 +165,7 @@ for feature in features:
                 jointType = 'prismatic'
                 limits = getLimits(jointType, data['name'])
             elif data['mateType'] == 'FASTENED':
-                jointType = 'floating'
+                jointType = 'fixed'
                 limits = None
             else:
                 print(Fore.RED +'ERROR: "'+ name+'" is declared as a DOF but the mate type is '+data['mateType']+'')
