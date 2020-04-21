@@ -154,7 +154,7 @@ class RobotURDF(RobotDescription):
 
     def addDummyBaseLinkMethod(self, name):
         # adds a dummy base_link for ROS users
-        self.append('<link name="base_link"></link>')
+        self.append('<link name="base_link"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="0.0001" /><inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" /></inertial></link>')
         self.append('<joint name="base_link_to_base" type="fixed">')
         self.append('<parent link="base_link"/>')
         self.append('<child link="' + name + '" />')
