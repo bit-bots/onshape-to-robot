@@ -1,8 +1,10 @@
-import numpy as np
-from onshape_api.client import Client
-from config import config, configFile
-from colorama import Fore, Back, Style
 import math
+from sys import exit
+import numpy as np
+import uuid
+from .onshape_api.client import Client
+from .config import config, configFile
+from colorama import Fore, Back, Style
 
 # OnShape API client
 client = Client(logging=False, creds=configFile)
@@ -23,10 +25,12 @@ if config['versionId'] == '':
 else:
     elements = client.list_elements(config['documentId'], config['versionId'], 'v').json()
 assemblyId = None
+assemblyName = ''
 for element in elements:
     if element['type'] == 'Assembly' and \
         (config['assemblyName'] is False or element['name'] == config['assemblyName']):
         print(Fore.GREEN + "+ Found assembly, id: "+element['id']+', name: "'+element['name']+'"' + Style.RESET_ALL)
+        assemblyName = element['name']
         assemblyId = element['id']
 
 if assemblyId == None:
@@ -34,7 +38,7 @@ if assemblyId == None:
     exit(1)
 
 # Retrieving the assembly
-print("\n" + Style.BRIGHT + '* Retrieving assembly' + Style.RESET_ALL)
+print("\n" + Style.BRIGHT + '* Retrieving assembly "'+assemblyName+'" with id '+assemblyId+ Style.RESET_ALL)
 if config['versionId'] == '':
     assembly = client.get_assembly(config['documentId'], workspaceId, assemblyId)
 else:
@@ -177,7 +181,29 @@ for feature in features:
                 limitsStr = '[' +str(round(limits[0], 3)) + ': ' + str(round(limits[1], 3)) + ']'
             print(Fore.GREEN + '+ Found DOF: '+name + ' ' + Style.DIM + '('+jointType+')'+limitsStr+ Style.RESET_ALL)
 
-            relations[child] = [parent, data, name, jointType, limits]
+            # We compute the axis in the world frame
+            matedEntity = data['matedEntities'][0]
+            matedTransform = getOccurrence(matedEntity['matedOccurrence'])['transform']
+            zAxis = np.array(matedEntity['matedCS']['zAxis'])
+            if data['inverted']:
+                zAxis = -zAxis
+            origin = matedEntity['matedCS']['origin']
+
+            translation = np.matrix(np.identity(4))
+            translation[0, 3] += origin[0]
+            translation[1, 3] += origin[1]
+            translation[2, 3] += origin[2]
+            worldAxisFrame = matedTransform * translation
+
+            relations[child] = {
+                'parent': parent, 
+                'worldAxisFrame': worldAxisFrame,
+                'zAxis': zAxis,
+                'name': name,
+                'type': jointType,
+                'limits': limits
+            }
+
             assignParts(child, child)
             assignParts(parent, parent)
             if child not in frames:
@@ -191,6 +217,20 @@ print(Fore.GREEN + Style.BRIGHT + '* Found total '+str(len(relations))+' DOFs' +
 if len(relations) == 0:
     trunk = firstInstance
     assignParts(firstInstance, firstInstance)
+
+def connectParts(child, parent):
+    if config['connectWithFixedLinks']:
+        assignParts(child, child)
+        relations[child] = {
+            'parent': parent, 
+            'worldAxisFrame': np.identity(4),
+            'zAxis': np.array([0, 0, 1]),
+            'name': str(uuid.uuid4())+'_fixing',
+            'type': 'fixed',
+            'limits': None
+        }
+    else:
+        assignParts(child, parent)
 
 # Spreading parts assignations, this parts mainly does two things:
 # 1. Finds the parts of the top level assembly that are not directly in a sub assembly and try to assign them
@@ -226,10 +266,10 @@ while changed:
                     changed = True
             else:
                 if occurrenceA in assignations:
-                    assignParts(occurrenceB, assignations[occurrenceA])
+                    connectParts(occurrenceB, assignations[occurrenceA])
                     changed = True
                 else:
-                    assignParts(occurrenceA, assignations[occurrenceB])
+                    connectParts(occurrenceA, assignations[occurrenceB])
                     changed = True
 
 # Building and checking robot tree, here we:
@@ -241,8 +281,8 @@ print("\n" + Style.BRIGHT + '* Building robot tree' + Style.RESET_ALL)
 
 for childId in relations:
     entry = relations[childId]
-    if entry[0] not in relations:
-        trunk = entry[0]
+    if entry['parent'] not in relations:
+        trunk = entry['parent']
         break
 trunkOccurrence = getOccurrence([trunk])
 print(Style.BRIGHT + '* Trunk is '+trunkOccurrence['instance']['name'] + Style.RESET_ALL)
@@ -250,7 +290,8 @@ print(Style.BRIGHT + '* Trunk is '+trunkOccurrence['instance']['name'] + Style.R
 for occurrence in occurrences.values():
     if occurrence['assignation'] is None:
         print(Fore.YELLOW + 'WARNING: part ('+occurrence['instance']['name']+') has no assignation, connecting it with trunk' + Style.RESET_ALL)
-        occurrence['assignation'] = trunk
+        child = occurrence['path'][0]
+        connectParts(child, trunk)
 
 def collect(id):
     part = {}
@@ -258,21 +299,13 @@ def collect(id):
     part['children'] = []
     for childId in relations:
         entry = relations[childId]
-        if entry[0] == id:
+        if entry['parent'] == id:
             child = collect(childId)
-            mate = entry[1]
-            child['dof_name'] = entry[2]
-            if mate['matedEntities'][0]['matedOccurrence'][0] == id:
-                matedOccurrence = mate['matedEntities'][1]
-            else:
-                matedOccurrence = mate['matedEntities'][0]
-            child['occurrence'] = matedOccurrence['matedOccurrence']
-            child['origin'] = matedOccurrence['matedCS']['origin']
-            child['zAxis'] = np.array(matedOccurrence['matedCS']['zAxis'])
-            child['jointType'] = entry[3]
-            if mate['inverted']:
-                child['zAxis'] = -child['zAxis']
-            child['jointLimits'] = entry[4]
+            child['axis_frame'] = entry['worldAxisFrame']
+            child['z_axis'] = entry['zAxis']
+            child['dof_name'] = entry['name']
+            child['jointType'] = entry['type']
+            child['jointLimits'] = entry['limits']
             part['children'].append(child)
     return part
 

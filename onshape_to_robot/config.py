@@ -1,6 +1,7 @@
-import commentjson as json
+from sys import exit
 import sys
 import os
+import commentjson as json
 from colorama import Fore, Back, Style
 
 config = {}
@@ -8,6 +9,7 @@ config = {}
 # Loading configuration & parameters
 if len(sys.argv) <= 1:
     exit(Fore.RED + 'ERROR: usage: onshape-to-robot.py [robot_directory]' + Style.RESET_ALL)
+    exit("Read documentation at https://github.com/rhoban/onshape-to-robot/#onshape-to-robot-sdfurdf")
 robot = sys.argv[1]
 
 
@@ -28,10 +30,11 @@ config = json.load(open(configFile))
 
 config['documentId'] = configGet('documentId')
 config['versionId'] = configGet('versionId', '')
-config['drawFrames'] = configGet('drawFrames')
+config['drawFrames'] = configGet('drawFrames', False)
 config['drawCollisions'] = configGet('drawCollisions', False)
 config['assemblyName'] = configGet('assemblyName', False)
 config['outputFormat'] = configGet('outputFormat', 'urdf')
+config['connectWithFixedLinks'] = configGet('connectWithFixedLinks', True)
 
 # Using OpenSCAD for simplified geometry
 config['useScads'] = configGet('useScads', True)

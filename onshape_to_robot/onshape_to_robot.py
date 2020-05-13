@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 import numpy as np
 from copy import copy
-from robot_description import RobotURDF, RobotSDF
 from colorama import Fore, Back, Style
 import sys
+from sys import exit
 import os
-import csg
 import hashlib
+from . import csg
+from .robot_description import RobotURDF, RobotSDF
 
 # Loading configuration, collecting occurrences and building robot tree
-from load_robot import \
+from .load_robot import \
     config, client, tree, occurrences, getOccurrence, frames
 
 # Creating robot for output
@@ -123,7 +124,7 @@ def processPartName(name, configuration, overrideName=None):
     else:
         return overrideName
 
-def buildRobot(tree, matrix, linkPart=None):
+def buildRobot(tree, matrix):
     occurrence = getOccurrence([tree['id']])
     instance = occurrence['instance']
     print(Fore.BLUE + Style.BRIGHT + '* Adding top-level instance ['+instance['name']+']' + Style.RESET_ALL)
@@ -154,18 +155,10 @@ def buildRobot(tree, matrix, linkPart=None):
     # Following the children in the tree, calling this function recursively
     k = 0
     for child in tree['children']:
-        childLinkPart = getOccurrence(child['occurrence'])
-        childWorldFrame = childLinkPart['transform']
-        origin = child['origin']
-        zAxis = child['zAxis']
+        worldAxisFrame = child['axis_frame']
+        zAxis = child['z_axis']
         jointType = child['jointType']
         jointLimits = child['jointLimits']
-
-        translation = np.matrix(np.identity(4))
-        translation[0, 3] += origin[0]
-        translation[1, 3] += origin[1]
-        translation[2, 3] += origin[2]
-        worldAxisFrame = childWorldFrame * translation
 
         if robot.relative:
             axisFrame = np.linalg.inv(matrix)*worldAxisFrame
@@ -176,7 +169,7 @@ def buildRobot(tree, matrix, linkPart=None):
             axisFrame = worldAxisFrame
             childMatrix = matrix
 
-        subLink = buildRobot(child, childMatrix, '_'.join(childLinkPart['path']))
+        subLink = buildRobot(child, childMatrix)
         robot.addJoint(jointType, link, subLink, axisFrame, child['dof_name'], jointLimits, zAxis)
 
     return link
