@@ -221,6 +221,18 @@ class RobotURDF(RobotDescription):
         self.append('</material>')
         self.append('</visual>')
 
+        if self.mergeSTLs:
+            # add single collision stl in case of mergin
+            self.append('<collision>')
+            self.append(origin(matrix))
+            self.append('<geometry>')
+            self.append('<mesh filename="package://' + self.packageName + stl + '"/>')
+            self.append('</geometry>')
+            self.append('<material name="' + name + '_material">')
+            self.append('<color rgba="%g %g %g 1.0"/>' % (color[0], color[1], color[2]))
+            self.append('</material>')
+            self.append('</collision>')
+
     def addPart(self, matrix, stl, mass, com, inertia, color, shapes=None, name=''):
 
         if not self.drawCollisions:
@@ -236,15 +248,17 @@ class RobotURDF(RobotDescription):
             
             if shapes is None:
                 # We don't have pure shape, we use the mesh
-                self.append('<'+entry+'>')
-                self.append(origin(matrix))
-                self.append('<geometry>')
-                self.append('<mesh filename="package://'+ self.packageName +os.path.basename(stl)+'"/>')
-                self.append('</geometry>')
-                self.append('<material name="'+name+'_material">')
-                self.append('<color rgba="%g %g %g 1.0"/>' % (color[0], color[1], color[2]))
-                self.append('</material>')
-                self.append('</'+entry+'>')
+                if not self.mergeSTLs:
+                    # when merging STLs we use the single visual stl instead (see addVisualSTL method)
+                    self.append('<'+entry+'>')
+                    self.append(origin(matrix))
+                    self.append('<geometry>')
+                    self.append('<mesh filename="package://'+ self.packageName +os.path.basename(stl)+'"/>')
+                    self.append('</geometry>')
+                    self.append('<material name="'+name+'_material">')
+                    self.append('<color rgba="%g %g %g 1.0"/>' % (color[0], color[1], color[2]))
+                    self.append('</material>')
+                    self.append('</'+entry+'>')
             else:
                 # Inserting pure shapes in the URDF model
                 for shape in shapes:
