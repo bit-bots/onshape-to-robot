@@ -51,6 +51,8 @@ class RobotDescription(object):
         self.xml = ''
         self.jointMaxEffort = 1
         self.jointMaxVelocity = 10
+        self.jointFriction = 0.0
+        self.jointDamping = 0.0
         self.noDynamics = False
         self.packageName = ""
         self.addDummyBaseLink = False
@@ -76,6 +78,24 @@ class RobotDescription(object):
                 return self.jointMaxVelocity['default']
         else:
             return self.jointMaxVelocity
+
+    def jointFrictionFor(self, jointName):
+        if isinstance(self.jointFriction, dict):
+            if jointName in self.jointFriction:
+                return self.jointFriction[jointName]
+            else:
+                return self.jointFriction['default']
+        else:
+            return self.jointFriction
+
+    def jointDampingFor(self, jointName):
+        if isinstance(self.jointDamping, dict):
+            if jointName in self.jointDamping:
+                return self.jointDamping[jointName]
+            else:
+                return self.jointDamping['default']
+        else:
+            return self.jointDamping
 
     def resetLink(self):
         self._mesh = None
@@ -292,7 +312,7 @@ class RobotURDF(RobotDescription):
         if jointLimits is not None:
             lowerUpperLimits = 'lower="%g" upper="%g"' % jointLimits
         self.append('<limit effort="%g" velocity="%g" %s/>' % (self.jointMaxEffortFor(name), self.jointMaxVelocityFor(name), lowerUpperLimits))
-        self.append('<joint_properties friction="0.0"/>')
+        self.append('<dynamics friction="%g" damping="%g"/>' % (self.jointFrictionFor(name), self.jointDampingFor(name)))
         self.append('</joint>')
         self.append('')
     

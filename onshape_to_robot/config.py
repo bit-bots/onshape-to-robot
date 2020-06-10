@@ -42,6 +42,8 @@ config['useScads'] = configGet('useScads', True)
 # Dynamics
 config['jointMaxEffort'] = configGet('jointMaxEffort', 1)
 config['jointMaxVelocity'] = configGet('jointMaxVelocity', 20)
+config['jointFriction'] = configGet('jointFriction', 0)
+config['jointDamping'] = configGet('jointDamping', 0)
 config['noDynamics'] = configGet('noDynamics', False)
 
 # Ignore list
